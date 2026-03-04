@@ -1,0 +1,72 @@
+# dagster.yaml
+# Dagster instance configuration for <your-org> pipeline orchestration
+#
+# Uses a dedicated PostgreSQL container (dagster-db, port 5436 on host)
+# and DockerRunLauncher to isolate each pipeline run in its own container.
+
+# ── Storage ─────────────────────────────────────────────────────────
+# All metadata (runs, events, schedules) stored in the dedicated
+# dagster-db PostgreSQL container within this compose stack.
+storage:
+  postgres:
+    postgres_db:
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      hostname:
+        env: DAGSTER_POSTGRES_HOST
+      port:
+        env: DAGSTER_POSTGRES_PORT
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+
+# ── Run Launcher ────────────────────────────────────────────────────
+# DockerRunLauncher: each run gets its own container.
+# Isolates run memory from infrastructure memory.
+# The image is set by DAGSTER_CURRENT_IMAGE on the user-code server.
+run_launcher:
+  module: dagster_docker
+  class: DockerRunLauncher
+  config:
+    env_vars:
+      - DAGSTER_POSTGRES_USER
+      - DAGSTER_POSTGRES_PASSWORD
+      - DAGSTER_POSTGRES_HOST
+      - DAGSTER_POSTGRES_PORT
+      - DAGSTER_POSTGRES_DB
+      - MARIADB_CONNECTION_STRING
+      - TARGET_POSTGRES_URL
+    network: dagster_network
+    container_kwargs:
+      volumes:
+        - /tmp/io_manager_storage:/tmp/io_manager_storage
+      # Cap each run container at 512MB to prevent memory leaks 
+      # from starving the server. Adjust as needed.
+      # mem_limit: "512m"
+
+# ── Run Coordinator ─────────────────────────────────────────────────
+# Queued runs with concurrency limit.
+# max_concurrent_runs: 4 prevents all 40 pipelines from running at once.
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 4
+
+# ── Scheduler ───────────────────────────────────────────────────────
+# Built-in daemon scheduler — replaces cron entirely.
+scheduler:
+  module: dagster.core.scheduler
+  class: DagsterDaemonScheduler
+
+# ── Retention ───────────────────────────────────────────────────────
+# Keep run history for 90 days, sensor ticks for 7 days.
+retention:
+  schedule:
+    purge_after_days: 90
+  sensor:
+    purge_after_days:
+      skipped: 7
+      failure: 30
+      success: -1

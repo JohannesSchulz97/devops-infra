@@ -1,0 +1,176 @@
+# docker-compose.dagster.yml
+# Dagster orchestration layer for <your-org> pipeline migration
+#
+# Usage:
+#   docker compose -f docker-compose.dagster.yml up -d
+#
+# The Dagster UI will be available at http://localhost:3010
+# (port 3010 to avoid conflict with Twenty on 3000)
+
+services:
+
+  # ── PostgreSQL (Dagster metadata) ─────────────────────────────────
+  # Dedicated Postgres instance for Dagster on port 5436 (host).
+  # Follows server convention: each service gets its own PG container.
+  dagster-db:
+    image: postgres:16
+    container_name: dagster-db
+    restart: always
+    environment:
+      POSTGRES_USER: "${DAGSTER_POSTGRES_USER:-dagster}"
+      POSTGRES_PASSWORD: "${DAGSTER_POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${DAGSTER_POSTGRES_DB:-dagster}"
+    ports:
+      - "127.0.0.1:5436:5432"
+    volumes:
+      - /mnt/main/pg_dagster:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DAGSTER_POSTGRES_USER:-dagster} -d ${DAGSTER_POSTGRES_DB:-dagster}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dagster_network
+
+  # ── User Code Server ──────────────────────────────────────────────
+  # Loads your pipeline definitions via gRPC. Dagster webserver and
+  # daemon both connect to this to discover assets, jobs, schedules.
+  # When using DockerRunLauncher, this same image is used to spawn
+  # ephemeral run containers.
+  dagster-user-code:
+    image: ghcr.io/<your-org>/dagster-pipelines:latest
+    container_name: dagster-user-code
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    environment:
+      DAGSTER_POSTGRES_USER: "${DAGSTER_POSTGRES_USER:-dagster}"
+      DAGSTER_POSTGRES_PASSWORD: "${DAGSTER_POSTGRES_PASSWORD}"
+      DAGSTER_POSTGRES_HOST: "${DAGSTER_POSTGRES_HOST:-dagster-db}"
+      DAGSTER_POSTGRES_PORT: "${DAGSTER_POSTGRES_PORT:-5432}"
+      DAGSTER_POSTGRES_DB: "${DAGSTER_POSTGRES_DB:-dagster}"
+      DAGSTER_CURRENT_IMAGE: "ghcr.io/<your-org>/dagster-pipelines:latest"
+      # Connection strings for data sources and targets
+      MARIADB_CONNECTION_STRING: "${MARIADB_CONNECTION_STRING}"
+      PIPELINE_POSTGRES_URL: "postgresql://${DAGSTER_POSTGRES_USER:-dagster}:${DAGSTER_POSTGRES_PASSWORD}@dagster-db:5432/pipelines"
+      TWENTY_POSTGRES_URL: "${TARGET_POSTGRES_URL}"
+    healthcheck:
+      test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - dagster_network
+    depends_on:
+      dagster-db:
+        condition: service_healthy
+
+  # ── User Code Server (Dev) ────────────────────────────────────────
+  # Dev code location — same pipeline code but writes to pipelines_dev.
+  # Image tagged :dev, built from the dev branch via GH Actions.
+  # Optional: if the :dev image doesn't exist, this container stays down
+  # while production continues working normally.
+  dagster-user-code-dev:
+    image: ghcr.io/<your-org>/dagster-pipelines:dev
+    container_name: dagster-user-code-dev
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    environment:
+      DAGSTER_POSTGRES_USER: "${DAGSTER_POSTGRES_USER:-dagster}"
+      DAGSTER_POSTGRES_PASSWORD: "${DAGSTER_POSTGRES_PASSWORD}"
+      DAGSTER_POSTGRES_HOST: "${DAGSTER_POSTGRES_HOST:-dagster-db}"
+      DAGSTER_POSTGRES_PORT: "${DAGSTER_POSTGRES_PORT:-5432}"
+      DAGSTER_POSTGRES_DB: "${DAGSTER_POSTGRES_DB:-dagster}"
+      MARIADB_CONNECTION_STRING: "${MARIADB_CONNECTION_STRING}"
+      PIPELINE_POSTGRES_URL: "postgresql://${DAGSTER_POSTGRES_USER:-dagster}:${DAGSTER_POSTGRES_PASSWORD}@dagster-db:5432/pipelines_dev"
+      # TWENTY_POSTGRES_URL intentionally omitted — dev must not sync to Twenty
+    healthcheck:
+      test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - dagster_network
+    depends_on:
+      dagster-db:
+        condition: service_healthy
+
+  # ── Webserver (UI) ────────────────────────────────────────────────
+  # Serves the Dagster UI. Reads pipeline definitions from user-code
+  # server. Uses QueuedRunCoordinator, so submitted runs go to a queue
+  # that the daemon picks up.
+  dagster-webserver:
+    image: ghcr.io/<your-org>/dagster-infra:latest
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    entrypoint:
+      - dagster-webserver
+      - -h
+      - "0.0.0.0"
+      - -p
+      - "3010"
+      - -w
+      - workspace.yaml
+    container_name: dagster-webserver
+    restart: always
+    ports:
+      - "3010:3010"
+    environment:
+      DAGSTER_POSTGRES_USER: "${DAGSTER_POSTGRES_USER:-dagster}"
+      DAGSTER_POSTGRES_PASSWORD: "${DAGSTER_POSTGRES_PASSWORD}"
+      DAGSTER_POSTGRES_HOST: "${DAGSTER_POSTGRES_HOST:-dagster-db}"
+      DAGSTER_POSTGRES_PORT: "${DAGSTER_POSTGRES_PORT:-5432}"
+      DAGSTER_POSTGRES_DB: "${DAGSTER_POSTGRES_DB:-dagster}"
+    volumes:
+      # Docker socket needed to terminate run containers from the UI
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dagster-io-manager:/tmp/io_manager_storage
+    networks:
+      - dagster_network
+    depends_on:
+      dagster-user-code:
+        condition: service_healthy
+
+  # ── Daemon ────────────────────────────────────────────────────────
+  # Runs schedules, sensors, and dequeues/launches runs.
+  # With DockerRunLauncher, each run spins up its own container.
+  dagster-daemon:
+    image: ghcr.io/<your-org>/dagster-infra:latest
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    entrypoint:
+      - dagster-daemon
+      - run
+    container_name: dagster-daemon
+    restart: on-failure
+    environment:
+      DAGSTER_POSTGRES_USER: "${DAGSTER_POSTGRES_USER:-dagster}"
+      DAGSTER_POSTGRES_PASSWORD: "${DAGSTER_POSTGRES_PASSWORD}"
+      DAGSTER_POSTGRES_HOST: "${DAGSTER_POSTGRES_HOST:-dagster-db}"
+      DAGSTER_POSTGRES_PORT: "${DAGSTER_POSTGRES_PORT:-5432}"
+      DAGSTER_POSTGRES_DB: "${DAGSTER_POSTGRES_DB:-dagster}"
+      # Needed by DockerRunLauncher to pass to ephemeral run containers
+      MARIADB_CONNECTION_STRING: "${MARIADB_CONNECTION_STRING}"
+      TARGET_POSTGRES_URL: "${TARGET_POSTGRES_URL}"
+    volumes:
+      # Docker socket needed to launch run containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dagster-io-manager:/tmp/io_manager_storage
+    networks:
+      - dagster_network
+    depends_on:
+      dagster-user-code:
+        condition: service_healthy
+
+volumes:
+  dagster-db-data:
+  dagster-io-manager:
+
+networks:
+  dagster_network:
+    driver: bridge
+    name: dagster_network

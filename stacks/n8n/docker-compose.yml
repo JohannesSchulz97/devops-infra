@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  n8n:
+    image: n8nio/n8n
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=flow.<host-domain>
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://flow.<host-domain>/
+      - N8N_PAYLOAD_SIZE_MAX=50
+      - GENERIC_TIMEZONE=Europe/Berlin
+      # Database (uses SQLite by default, Postgres for production)
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n
+      - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      # Encryption key (generate with: openssl rand -hex 32)
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      # SMTP settings for password reset emails
+      - N8N_SMTP_HOST=smtp.eu.mailgun.org
+      - N8N_SMTP_PORT=587
+      - N8N_SMTP_SSL=false
+      - N8N_SMTP_USER=${N8N_SMTP_USER}
+      - N8N_SMTP_PASS=${N8N_SMTP_PASS}
+      - N8N_SMTP_SENDER=norply@notification.<your-org>.com
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+
+  postgres:
+    container_name: n8n-db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=n8n
+      - POSTGRES_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      - POSTGRES_DB=n8n
+    volumes:
+      - /mnt/main/pg_n8n:/var/lib/postgresql/data
+
+volumes:
+  n8n_data:
+  postgres_data:
+  caddy_data:
+  caddy_config:

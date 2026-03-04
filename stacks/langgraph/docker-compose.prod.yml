@@ -1,0 +1,65 @@
+# =============================================================================
+# llm-pipelines — Production Docker Compose
+# =============================================================================
+# Usage:
+#   langgraph build -t llm-pipelines:latest
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Requires .env with all variables (see .env.production.example)
+# API binds to 127.0.0.1:8123 — put Caddy/Nginx in front for TLS.
+# PG (5434) and Redis (6380) offset to avoid collision with Oracle/SurfSense stacks.
+# =============================================================================
+
+services:
+  langgraph-api:
+    image: llm-pipelines:latest
+    ports:
+      - "127.0.0.1:8123:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
+    environment:
+      REDIS_URI: redis://redis:6379/0
+      POSTGRES_URI: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/langgraph
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - /mnt/main/pg_langgraph:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: langgraph
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

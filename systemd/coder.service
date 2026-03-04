@@ -1,0 +1,25 @@
+[Unit]
+Description=Coder - Remote Development Platform
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=<admin-user>
+Group=<admin-user>
+ExecStart=/usr/bin/coder server
+Restart=always
+RestartSec=10
+
+# Environment
+Environment="CODER_ACCESS_URL=https://coder.<host-domain>"
+Environment="CODER_HTTP_ADDRESS=127.0.0.1:3000"
+Environment="CODER_PG_CONNECTION_URL=postgresql://coder:<PASSWORD>@localhost:5432/coder?sslmode=disable"
+Environment="CODER_WILDCARD_ACCESS_URL=*.coder.<host-domain>"
+Environment="CODER_AUTOSTOP_DEFAULT_SCHEDULE=CRON_TZ=Europe/Zurich 0 0 * * *"
+Environment="CODER_MAX_WORKSPACE_AUTOSTOP_DURATION=72h"
+Environment="CODER_ALLOW_WORKSPACE_AUTOSTOP_CANCEL=true"
+Environment="CODER_FAILED_JOB_CLEANUP_DURATION=24h"
+
+[Install]
+WantedBy=multi-user.target

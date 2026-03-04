@@ -1,0 +1,121 @@
+# All LISTMONK_* env variables also support the LISTMONK_*_FILE pattern for loading secrets from files with Docker secrets and Podman
+# eg: LISTMONK_ADMIN_USER -> LISTMONK_ADMIN_USER_FILE=/path/to/file_with_value
+
+x-db-credentials: &db-credentials
+  POSTGRES_USER: &db-user ${LISTMONK_DB_USER:-listmonk}
+  POSTGRES_PASSWORD: &db-password ${LISTMONK_DB_PASSWORD}
+  POSTGRES_DB: &db-name ${LISTMONK_DB_NAME:-listmonk}
+
+services:
+  # One-shot: creates the database if it doesn't exist (runs before app)
+  db-init:
+    image: postgres:17-alpine
+    container_name: listmonk_db_init
+    networks:
+      - listmonk
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      <<: *db-credentials
+      PGHOST: ${LISTMONK_DB_HOST:-host.docker.internal}
+      PGPORT: ${LISTMONK_DB_PORT:-5435}
+      PGUSER: ${LISTMONK_DB_SUPERUSER:-postgres}
+      PGPASSWORD: ${LISTMONK_DB_SUPERUSER_PASSWORD}
+    entrypoint: >
+      sh -c "psql -f /sql/init-db.sql"
+    volumes:
+      - ./sql:/sql:ro
+    restart: "no"
+
+  # listmonk app
+  app:
+    image: ghcr.io/<your-org>/listmonk:latest
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    container_name: listmonk_app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9000:9000"                                  # Bind to localhost only — Traefik handles public access
+    networks:
+      - listmonk
+    extra_hosts:
+      - "host.docker.internal:host-gateway"                     # Allows containers to reach host's PostgreSQL
+    hostname: listmonk.<host-domain>.                                 # Recommend using FQDN for hostname
+    env_file:
+      - .env
+    depends_on:
+      db-init:
+        condition: service_completed_successfully                # Ensures database exists before app starts
+    command: [sh, -c, "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
+                                                             # --config (file) param is set to empty so that listmonk only uses the env vars (below) for config.
+                                                             # --install --idempotent ensures that DB installation happens only once on an empty DB, on the first ever start.
+                                                             # --upgrade automatically runs any DB migrations when a new image is pulled.
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s                                       # Gives --install and --upgrade time to finish before health checks begin
+
+    environment:                                              # The same params as in config.toml are passed as env vars here.
+      LISTMONK_app__address: 0.0.0.0:9000
+      LISTMONK_db__user: *db-user
+      LISTMONK_db__password: *db-password
+      LISTMONK_db__database: *db-name
+      LISTMONK_db__host: ${LISTMONK_DB_HOST:-host.docker.internal}
+      LISTMONK_db__port: ${LISTMONK_DB_PORT:-5435}
+      LISTMONK_db__ssl_mode: disable
+      LISTMONK_db__max_open: 25
+      LISTMONK_db__max_idle: 25
+      LISTMONK_db__max_lifetime: 300s
+      TZ: Etc/UTC
+      LISTMONK_ADMIN_USER: ${LISTMONK_ADMIN_USER:-}           # If these (optional) are set during the first `docker compose up`, then the Super Admin user is automatically created.
+      LISTMONK_ADMIN_PASSWORD: ${LISTMONK_ADMIN_PASSWORD:-}   # Otherwise, the user can be setup on the web app after the first visit to http://localhost:9000
+
+        # SMTP (Mailgun EU)
+      LISTMONK_smtp__mailgun__enabled: "true"
+      LISTMONK_smtp__mailgun__host: ${EMAIL_SMTP_HOST:-smtp.eu.mailgun.org}
+      LISTMONK_smtp__mailgun__port: ${EMAIL_SMTP_PORT:-587}
+      LISTMONK_smtp__mailgun__auth_protocol: plain
+      LISTMONK_smtp__mailgun__username: ${EMAIL_SMTP_USERNAME}
+      LISTMONK_smtp__mailgun__password: ${EMAIL_SMTP_PASSWORD}
+      LISTMONK_smtp__mailgun__tls_enabled: "true"
+      LISTMONK_smtp__mailgun__start_tls: "true"
+      LISTMONK_smtp__mailgun__max_conns: 10
+
+    volumes:
+      - ./uploads:/listmonk/uploads:rw                        # Mount an uploads directory on the host to /listmonk/uploads inside the container.
+                                                              # To use this, change directory path in Admin -> Settings -> Media to /listmonk/uploads
+
+  # One-shot migration: installs sync_queue table + unsubscribe trigger
+  # Runs AFTER Listmonk app has created its schema (--install --idempotent)
+  # Exits immediately after success, never restarts
+  migrate:
+    image: ghcr.io/<your-org>/listmonk:latest       # Same image as app — includes psql + SQL migrations
+    container_name: listmonk_migrate
+    depends_on:
+      app:
+        condition: service_healthy                             # Ensures --install and --upgrade have finished
+    networks:
+      - listmonk
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: >
+      sh -c "
+        echo 'Listmonk app healthy — subscriber_lists exists. Running trigger migration...' &&
+        PGPASSWORD=$$POSTGRES_PASSWORD psql
+          -h $${LISTMONK_DB_HOST:-host.docker.internal}
+          -p $${LISTMONK_DB_PORT:-5435}
+          -U $$POSTGRES_USER
+          -d $$POSTGRES_DB
+          -f /listmonk/sql/listmonk-triggers-sql.sql &&
+        echo 'Migration complete.'
+      "
+    environment:
+      <<: *db-credentials
+      LISTMONK_DB_HOST: ${LISTMONK_DB_HOST:-host.docker.internal}
+      LISTMONK_DB_PORT: ${LISTMONK_DB_PORT:-5435}
+    restart: "no"
+
+networks:
+  listmonk:

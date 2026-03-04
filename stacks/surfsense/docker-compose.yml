@@ -1,0 +1,77 @@
+version: "3.8"
+services:
+  db:
+    container_name: surfsense-db
+    image: ankane/pgvector:latest
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - /mnt/main/pg_surfsense:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-surfsense}
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@surfsense.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-surfsense}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  backend:
+    image: ghcr.io/<your-org>/oracle-backend:${BACKEND_TAG:-latest}
+    build:
+      context: ./surfsense_backend
+    ports:
+      - "0.0.0.0:8000:8000"
+    env_file:
+      - ./surfsense_backend/.env
+    environment:
+      PYTHONPATH: /app:/opt/llm-pipelines/src
+      PY<slack-workspace-id>TEBYTECODE: "1"
+    volumes:
+      - ./surfsense_backend/app/config/global_llm_config.yaml:/app/app/config/global_llm_config.yaml:ro
+      - /opt/llm-pipelines:/opt/llm-pipelines:ro
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/<your-org>/oracle-frontend:${FRONTEND_TAG:-latest}
+    build:
+      context: ./surfsense_web
+      args:
+        NEXT_PUBLIC_FASTAPI_BACKEND_URL: ${NEXT_PUBLIC_FASTAPI_BACKEND_URL:-http://localhost:8000}
+        NEXT_PUBLIC_FASTAPI_BACKEND_AUTH_TYPE: ${NEXT_PUBLIC_FASTAPI_BACKEND_AUTH_TYPE:-LOCAL}
+        NEXT_PUBLIC_ETL_SERVICE: ${NEXT_PUBLIC_ETL_SERVICE:-DOCLING}
+    ports:
+      - "0.0.0.0:${FRONTEND_PORT:-3000}:3000"
+    env_file:
+      - ./surfsense_web/.env
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  redis_data:
+  shared_temp:

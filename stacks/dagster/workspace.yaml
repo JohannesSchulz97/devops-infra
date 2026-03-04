@@ -1,0 +1,9 @@
+load_from:
+  - grpc_server:
+      host: dagster-user-code
+      port: 4000
+      location_name: "tob_pipelines"
+  - grpc_server:
+      host: dagster-user-code-dev
+      port: 4000
+      location_name: "tob_pipelines_dev"

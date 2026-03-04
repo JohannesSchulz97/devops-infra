@@ -1,0 +1,14 @@
+[Unit]
+Description=Hetzner Storage Box BX21 (SSHFS)
+After=network-online.target
+Wants=network-online.target
+
+[Mount]
+What=<storage-box-id>@<storage-box-id>.your-storagebox.de:foundry-mediasets
+Where=/mnt/storagebox
+Type=fuse.sshfs
+Options=port=23,_netdev,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,IdentityFile=/home/<admin-user>/.ssh/id_ed25519,allow_other,default_permissions
+TimeoutSec=30
+
+[Install]
+WantedBy=multi-user.target
