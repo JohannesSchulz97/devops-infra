@@ -18,7 +18,7 @@ services:
     environment:
       <<: *db-credentials
       PGHOST: ${LISTMONK_DB_HOST:-host.docker.internal}
-      PGPORT: ${LISTMONK_DB_PORT:-5435}
+      PGPORT: ${LISTMONK_DB_PORT:-5437}
       PGUSER: ${LISTMONK_DB_SUPERUSER:-postgres}
       PGPASSWORD: ${LISTMONK_DB_SUPERUSER_PASSWORD}
     entrypoint: >
@@ -35,12 +35,12 @@ services:
     container_name: listmonk_app
     restart: unless-stopped
     ports:
-      - "127.0.0.1:9000:9000"                                  # Bind to localhost only — Traefik handles public access
+      - "127.0.0.1:9000:9000"
     networks:
       - listmonk
     extra_hosts:
       - "host.docker.internal:host-gateway"                     # Allows containers to reach host's PostgreSQL
-    hostname: listmonk.<host-domain>.                                 # Recommend using FQDN for hostname
+    hostname: listmonk.<host-domain>
     env_file:
       - .env
     depends_on:
@@ -63,7 +63,7 @@ services:
       LISTMONK_db__password: *db-password
       LISTMONK_db__database: *db-name
       LISTMONK_db__host: ${LISTMONK_DB_HOST:-host.docker.internal}
-      LISTMONK_db__port: ${LISTMONK_DB_PORT:-5435}
+      LISTMONK_db__port: ${LISTMONK_DB_PORT:-5437}
       LISTMONK_db__ssl_mode: disable
       LISTMONK_db__max_open: 25
       LISTMONK_db__max_idle: 25
@@ -105,7 +105,7 @@ services:
         echo 'Listmonk app healthy — subscriber_lists exists. Running trigger migration...' &&
         PGPASSWORD=$$POSTGRES_PASSWORD psql
           -h $${LISTMONK_DB_HOST:-host.docker.internal}
-          -p $${LISTMONK_DB_PORT:-5435}
+          -p $${LISTMONK_DB_PORT:-5437}
           -U $$POSTGRES_USER
           -d $$POSTGRES_DB
           -f /listmonk/sql/listmonk-triggers-sql.sql &&
@@ -114,7 +114,7 @@ services:
     environment:
       <<: *db-credentials
       LISTMONK_DB_HOST: ${LISTMONK_DB_HOST:-host.docker.internal}
-      LISTMONK_DB_PORT: ${LISTMONK_DB_PORT:-5435}
+      LISTMONK_DB_PORT: ${LISTMONK_DB_PORT:-5437}
     restart: "no"
 
 networks:

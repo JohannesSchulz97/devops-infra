@@ -217,6 +217,129 @@ cd /opt/n8n && docker compose up -d    # recreates changed containers
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+## Twenty CRM: Full Workspace Recovery After Data Loss
+
+Use this when the Twenty workspace schema is missing or corrupted (e.g. someone dropped it, or `core.objectMetadata` is empty). Symptoms: login hangs on `/welcome`, server logs show `workspaceMember is missing` or `No role found for userWorkspace`.
+
+> **Background**: The workspace schema (`workspace_<slug>`) is NOT created by the upgrade command. It is only created by the `activateWorkspace` GraphQL mutation via `WorkspaceManagerService.init()`. The upgrade command only runs data migrations on *existing* schemas.
+
+### 1. Back up existing users
+
+```bash
+docker exec twenty-db psql -U twenty -d default -c \
+  "COPY (SELECT id, email, \"passwordHash\", \"defaultWorkspaceId\", \"isEmailVerified\", \"createdAt\" FROM core.user) TO STDOUT WITH CSV HEADER" \
+  > /opt/twenty/users_backup_$(date +%Y%m%d).csv
+```
+
+### 2. Reset the core schema (if corrupted)
+
+Stop app containers first, then drop and recreate:
+
+```bash
+cd /opt/twenty
+docker compose stop twenty-server twenty-worker
+
+# Drop corrupted schemas
+docker exec twenty-db psql -U twenty -d default -c "DROP SCHEMA core CASCADE;"
+
+# Restart server — entrypoint will recreate core schema + run migrations
+docker compose up -d twenty-server
+docker compose logs -f twenty-server   # wait for "Nest application successfully started"
+```
+
+### 3. Create a new workspace via API
+
+The workspace schema is created by calling `activateWorkspace`. Do this from the server against localhost to bypass Cloudflare Access:
+
+```bash
+# Step 1: Sign up a temporary user to get a loginToken
+curl -s -X POST http://localhost:3003/metadata \
+  -H "Content-Type: application/json" \
+  -d '{"query":"mutation { signUpInWorkspace(email: \"setup@<host-domain>\", password: \"<temp-password>\", workspaceDisplayName: \"setup\") { loginToken { token } workspace { id } } }"}' | jq .
+
+# Step 2: Exchange loginToken for an access token
+curl -s -X POST http://localhost:3003/metadata \
+  -H "Content-Type: application/json" \
+  -d '{"query":"mutation { getAuthTokensFromLoginToken(loginToken: \"<TOKEN>\", origin: \"http://localhost:3003\") { tokens { accessOrWorkspaceAgnosticToken { token } } } }"}' | jq .
+
+# Step 3: Activate the workspace (creates the workspace_<slug> schema with all 30 tables)
+curl -s -X POST http://localhost:3003/metadata \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -d '{"query":"mutation { activateWorkspace(data: { displayName: \"<your-org> AG\" }) { id subdomain activationStatus version } }"}' | jq .
+```
+
+Note the new workspace ID from step 1 — you'll need it below.
+
+### 4. Restore users
+
+```bash
+docker exec -i twenty-db psql -U twenty -d default <<'SQL'
+-- Delete temp setup user
+DELETE FROM core.user WHERE email = 'setup@<host-domain>';
+
+-- Re-insert real users with their original bcrypt password hashes
+INSERT INTO core.user (id, email, "passwordHash", "defaultWorkspaceId", "isEmailVerified", "createdAt", "updatedAt")
+VALUES
+  ('<id>', '<email>', '<hash>', '<new-workspace-id>', true, now(), now()),
+  ...;
+
+-- Link users to the new workspace
+INSERT INTO core."userWorkspace" (id, "userId", "workspaceId", "createdAt", "updatedAt")
+VALUES
+  (gen_random_uuid(), '<userId>', '<new-workspace-id>', now(), now()),
+  ...;
+SQL
+```
+
+### 5. Create workspaceMember records
+
+Each user needs a record in the workspace schema:
+
+```bash
+docker exec -i twenty-db psql -U twenty -d default <<SQL
+INSERT INTO workspace_<slug>."workspaceMember"
+  (id, "nameFirstName", "nameLastName", "colorScheme", "userId", "createdAt", "updatedAt")
+VALUES
+  (gen_random_uuid(), 'First', 'Last', 'Light', '<userId>', now(), now()),
+  ...;
+SQL
+```
+
+### 6. Assign roles
+
+```bash
+docker exec -i twenty-db psql -U twenty -d default <<SQL
+-- Find role IDs
+SELECT id, label FROM core.role;
+
+-- Find application ID
+SELECT id FROM core."keyValuePair" WHERE key = 'STANDARD_OBJECTS_CREATED' LIMIT 1;
+-- Application ID is in core."application" table:
+SELECT id FROM core.application LIMIT 1;
+
+-- Assign roles (one row per userWorkspace)
+INSERT INTO core."roleTarget" (id, "roleId", "userWorkspaceId", "workspaceId", "createdAt", "updatedAt")
+SELECT gen_random_uuid(), '<admin-role-id>', uw.id, uw."workspaceId", now(), now()
+FROM core."userWorkspace" uw
+JOIN core.user u ON uw."userId" = u.id
+WHERE u.email = '<admin-email>';
+
+-- Repeat with member-role-id for other users
+SQL
+```
+
+### 7. Flush cache and start worker
+
+```bash
+docker exec twenty-twenty-server-1 yarn command:prod cache:flush
+docker compose up -d twenty-worker
+```
+
+Login should now work. Verify: `curl http://localhost:3003/healthz`
+
+---
+
 ## Troubleshooting
 
 ### Container won't start

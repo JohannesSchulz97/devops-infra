@@ -24,6 +24,7 @@ Internet
   │             ├── oracle.<host-domain>         → 127.0.0.1:8000/3001 (SurfSense)
   │             ├── langgraph.<host-domain>      → 127.0.0.1:8123  (LangGraph)
   │             ├── coder.<host-domain>          → 127.0.0.1:3000  (Coder)
+  │             ├── listmonk.<host-domain>       → 127.0.0.1:9000  (Listmonk)
   │             ├── vibekanban.<host-domain>     → 127.0.0.1:8082  (VibeKanban)
   │             └── api.vibekanban.<host-domain> → 127.0.0.1:8081  (VibeKanban API)
   │
@@ -57,7 +58,7 @@ All application ports are bound to 127.0.0.1 except n8n (5678) and SurfSense bac
 
 ### PostgreSQL Instances
 
-Seven separate PostgreSQL containers, each with its own data directory:
+Six separate PostgreSQL containers (listmonk shares the Twenty instance):
 
 | Container | Port | User | Database(s) | Data Volume |
 |-----------|------|------|-------------|-------------|
@@ -67,7 +68,7 @@ Seven separate PostgreSQL containers, each with its own data directory:
 | n8n-db | (internal) | n8n | n8n | /mnt/main/pg_n8n |
 | surfsense-db | 5433 | postgres | surfsense | /mnt/main/pg_surfsense |
 | langgraph-db | 5434 | postgres | langgraph | pgdata named volume |
-| listmonk_db | (internal) | listmonk | listmonk | (managed by listmonk stack) |
+| twenty-db | 5437 | listmonk | listmonk | /mnt/main/pg_twenty (shared with Twenty) |
 
 ### Disk Layout
 
@@ -109,6 +110,7 @@ All certificates managed by Certbot (Let's Encrypt). Domains:
 - oracle.<host-domain>
 - langgraph.<host-domain>
 - coder.<host-domain>, *.coder.<host-domain> (wildcard)
+- listmonk.<host-domain>
 - vibekanban.<host-domain>
 - api.vibekanban.<host-domain>
 
@@ -151,7 +153,7 @@ SurfSense → PostgreSQL + pgvector (surfsense-db, local)
 LangGraph → PostgreSQL (langgraph-db, local)
           → Redis (local)
 
-Listmonk → PostgreSQL (foundry-datasets-db on 5435, external)
+Listmonk → PostgreSQL (twenty-db on 5437, shared instance)
          → Mailgun SMTP
 
 Coder → PostgreSQL (localhost:5432, separate instance)
