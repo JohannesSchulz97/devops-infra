@@ -1,7 +1,10 @@
 # devops-infra Makefile
-# Run these on the server (ssh <admin-user>@<server-ip>)
+# Load .env if present
+-include .env
+export
 
-SERVER := <admin-user>@<server-ip>
+SSH_USER ?= <admin-user>
+SERVER := $(SSH_USER)@<server-ip>
 
 .PHONY: status stop-all start-all backup-pg backup-configs backup-r2 disk certs
 
