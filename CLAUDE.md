@@ -12,8 +12,7 @@ This repository manages the infrastructure for the <your-org> main server (`<ser
 devops-infra/
 ├── CLAUDE.md                              # This file
 ├── README.md                              # Server overview, quick start
-├── Makefile                               # Common operations interface
-├── .env.example                           # Backup credentials template
+├── .env.example                           # Credentials template (SSH_USER, backups)
 ├── stacks/                                # Docker Compose per service
 │   ├── twenty/docker-compose.yml          # Twenty CRM (crm.<host-domain>)
 │   ├── listmonk/docker-compose.yml        # Listmonk email marketing
@@ -58,7 +57,7 @@ devops-infra/
 - **CPU**: AMD EPYC-Milan, 16 cores
 - **RAM**: 64 GB
 - **Disk**: 338 GB SSD + 10 TB Storage Box (SSHFS at /mnt/storagebox)
-- **SSH user**: <admin-user>
+- **SSH user**: set via `SSH_USER` in `.env` (default: <admin-user>)
 
 ## Key Patterns
 
