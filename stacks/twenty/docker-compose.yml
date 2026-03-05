@@ -42,6 +42,9 @@ services:
       timeout: 5s
       retries: 10
     restart: always
+    networks:
+      - default
+      - dagster_network
 
   redis:
     image: redis:7
@@ -117,3 +120,7 @@ services:
 volumes:
   redis-data:
   twenty-storage:
+
+networks:
+  dagster_network:
+    external: true
