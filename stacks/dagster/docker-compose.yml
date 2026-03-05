@@ -55,6 +55,8 @@ services:
       MARIADB_CONNECTION_STRING: "${MARIADB_CONNECTION_STRING}"
       PIPELINE_POSTGRES_URL: "postgresql://${DAGSTER_POSTGRES_USER:-dagster}:${DAGSTER_POSTGRES_PASSWORD}@dagster-db:5432/pipelines"
       TWENTY_POSTGRES_URL: "${TARGET_POSTGRES_URL}"
+      TWENTY_API_URL: "${TWENTY_API_URL}"
+      TWENTY_API_KEY: "${TWENTY_API_KEY}"
     healthcheck:
       test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
       interval: 10s
@@ -156,6 +158,8 @@ services:
       # Needed by DockerRunLauncher to pass to ephemeral run containers
       MARIADB_CONNECTION_STRING: "${MARIADB_CONNECTION_STRING}"
       TARGET_POSTGRES_URL: "${TARGET_POSTGRES_URL}"
+      TWENTY_API_URL: "${TWENTY_API_URL}"
+      TWENTY_API_KEY: "${TWENTY_API_KEY}"
     volumes:
       # Docker socket needed to launch run containers
       - /var/run/docker.sock:/var/run/docker.sock
