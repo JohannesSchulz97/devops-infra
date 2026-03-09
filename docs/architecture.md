@@ -153,7 +153,7 @@ SurfSense → PostgreSQL + pgvector (surfsense-db, local)
 LangGraph → PostgreSQL (langgraph-db, local)
           → Redis (local)
 
-Listmonk → PostgreSQL (twenty-db on 5437, shared instance)
+Listmonk → PostgreSQL (twenty-db:5432 via crm-stack Docker network)
          → Mailgun SMTP
 
 Coder → PostgreSQL (localhost:5432, separate instance)

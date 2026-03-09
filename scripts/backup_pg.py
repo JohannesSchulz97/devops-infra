@@ -26,10 +26,12 @@ Requires on the host: borg, docker, nice, ionice
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -45,6 +47,7 @@ BORG_RSH = (
     " -o ServerAliveInterval=60"
     " -o ServerAliveCountMax=3"
 )
+BACKUP_STATUS_DIR = Path(os.environ.get("BACKUP_STATUS_DIR", "/opt/backup-status"))
 
 PROFILES: dict[str, dict] = {
     "foundry-datasets": {
@@ -98,6 +101,32 @@ PROFILES: dict[str, dict] = {
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def write_status(
+    profile_name: str,
+    archive_name: str | None,
+    success: bool,
+    error_msg: str | None = None,
+) -> None:
+    """Write a JSON status file for Dagster observability."""
+    profile = PROFILES[profile_name]
+    now = datetime.now(timezone.utc)
+    status: dict = {
+        "profile": profile_name,
+        "type": "pg",
+        "status": "ok" if success else "error",
+        "archive": archive_name,
+        "timestamp": now.isoformat(),
+        "description": profile.get("description", ""),
+    }
+    if error_msg:
+        status["error"] = error_msg
+
+    BACKUP_STATUS_DIR.mkdir(parents=True, exist_ok=True)
+    status_file = BACKUP_STATUS_DIR / f"pg-{profile_name}.json"
+    status_file.write_text(json.dumps(status, indent=2) + "\n")
+    print(f"Status written to {status_file}")
 
 
 def borg_repo(profile_name: str) -> str:
@@ -311,8 +340,13 @@ def main():
             if not args.all and not profile.get("production", True):
                 print(f"Skipping {name} (non-production)\n")
                 continue
+            now = datetime.now(timezone.utc)
+            archive_name = f"{name}-{now:%Y-%m-%d_%H%M%S}"
             success = run_backup(name)
-            if not success:
+            if success:
+                write_status(name, archive_name, success=True)
+            else:
+                write_status(name, archive_name, success=False, error_msg=f"backup failed for {name}")
                 failed.append(name)
             print()
         if failed:
@@ -344,7 +378,11 @@ def main():
         verify_repo(args.profile)
         return
 
+    now = datetime.now(timezone.utc)
+    archive_name = f"{args.profile}-{now:%Y-%m-%d_%H%M%S}"
     success = run_backup(args.profile)
+    write_status(args.profile, archive_name, success=success,
+                 error_msg=f"backup failed for {args.profile}" if not success else None)
     if not success:
         sys.exit(1)
 

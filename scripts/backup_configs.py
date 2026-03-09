@@ -20,10 +20,12 @@ Requires on the host: borg, sudo, tar
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -42,6 +44,7 @@ BORG_RSH = (
 
 REPO_NAME = "server-configs"
 STACKS_DIR = "/opt"
+BACKUP_STATUS_DIR = Path(os.environ.get("BACKUP_STATUS_DIR", "/opt/backup-status"))
 
 # Files/dirs to include from each stack
 INCLUDE_PATTERNS = [
@@ -64,6 +67,30 @@ SKIP_DIRS = {"containerd", "foundry-backup"}
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def write_status(
+    archive_name: str | None,
+    success: bool,
+    error_msg: str | None = None,
+) -> None:
+    """Write a JSON status file for Dagster observability."""
+    now = datetime.now(timezone.utc)
+    status: dict = {
+        "profile": "configs",
+        "type": "configs",
+        "status": "ok" if success else "error",
+        "archive": archive_name,
+        "timestamp": now.isoformat(),
+        "description": "Stack configs and secrets from /opt",
+    }
+    if error_msg:
+        status["error"] = error_msg
+
+    BACKUP_STATUS_DIR.mkdir(parents=True, exist_ok=True)
+    status_file = BACKUP_STATUS_DIR / "configs.json"
+    status_file.write_text(json.dumps(status, indent=2) + "\n")
+    print(f"Status written to {status_file}")
 
 
 def borg_repo() -> str:
@@ -97,14 +124,15 @@ def collect_config_files() -> list[str]:
     return sorted(set(files))
 
 
-def run_backup() -> None:
-    """Create a borg archive of all stack config files."""
+def run_backup() -> bool:
+    """Create a borg archive of all stack config files. Returns True on success."""
     now = datetime.now(timezone.utc)
     archive_name = f"configs-{now:%Y-%m-%d_%H%M%S}"
 
     files = collect_config_files()
     if not files:
         print("No config files found to backup.", file=sys.stderr)
+        write_status(archive_name, success=False, error_msg="No config files found")
         sys.exit(1)
 
     print(f"Backing up {len(files)} config files -> {borg_repo()}::{archive_name}")
@@ -124,9 +152,12 @@ def run_backup() -> None:
 
     if result.returncode != 0:
         print(f"\nBackup FAILED (exit code {result.returncode})", file=sys.stderr)
+        write_status(archive_name, success=False, error_msg=f"borg exited with code {result.returncode}")
         sys.exit(result.returncode)
 
     print(f"\nBackup complete: {borg_repo()}::{archive_name}")
+    write_status(archive_name, success=True)
+    return True
 
 
 def init_repo() -> None:

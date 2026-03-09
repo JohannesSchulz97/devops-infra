@@ -1,0 +1,11 @@
+# <your-org> backup schedules — managed by devops-infra repo
+SHELL=/bin/bash
+MAILTO=""
+
+# Production PG backups daily at 04:00 CET (03:00 UTC in summer / 03:00 UTC in winter)
+# Using CET timezone — 4am local time year-round
+CRON_TZ=CET
+0 4 * * * root . /opt/devops-infra/.env && /usr/bin/python3 /opt/devops-infra/scripts/backup_pg.py --production >> /var/log/devops-backup-pg.log 2>&1
+
+# Config backups daily at 04:30 CET (after PG backups finish)
+30 4 * * * root . /opt/devops-infra/.env && /usr/bin/python3 /opt/devops-infra/scripts/backup_configs.py >> /var/log/devops-backup-configs.log 2>&1

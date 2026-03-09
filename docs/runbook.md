@@ -116,6 +116,38 @@ sshfs -p 23 <storage-box-id>@<storage-box-id>.your-storagebox.de:foundry-mediase
 sftp -P 23 <storage-box-id>@<storage-box-id>.your-storagebox.de
 ```
 
+## Cron Backup Scheduling
+
+Backups are scheduled via a cron drop-in file. Status JSON files are written to `/opt/backup-status/` for Dagster observability.
+
+### Initial setup (one-time)
+
+```bash
+# Create status directory
+sudo mkdir -p /opt/backup-status
+
+# Deploy cron file
+sudo cp /opt/devops-infra/cron/devops-backups /etc/cron.d/devops-backups
+sudo chmod 644 /etc/cron.d/devops-backups
+```
+
+### Check backup status
+
+```bash
+# View latest status files
+cat /opt/backup-status/pg-*.json /opt/backup-status/configs.json | jq .
+
+# Check cron logs
+tail -f /var/log/devops-backup-pg.log
+tail -f /var/log/devops-backup-configs.log
+```
+
+### Redeploy cron after changes
+
+```bash
+sudo cp /opt/devops-infra/cron/devops-backups /etc/cron.d/devops-backups
+```
+
 ## SSL Certificates
 
 ### Check certificate status

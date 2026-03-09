@@ -57,6 +57,8 @@ services:
       TWENTY_POSTGRES_URL: "${TARGET_POSTGRES_URL}"
       TWENTY_API_URL: "${TWENTY_API_URL}"
       TWENTY_API_KEY: "${TWENTY_API_KEY}"
+    volumes:
+      - /opt/backup-status:/opt/backup-status:ro
     healthcheck:
       test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
       interval: 10s
