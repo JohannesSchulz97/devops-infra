@@ -44,7 +44,7 @@ BORG_RSH = (
 
 REPO_NAME = "server-configs"
 STACKS_DIR = "/opt"
-BACKUP_STATUS_DIR = Path(os.environ.get("BACKUP_STATUS_DIR", "/opt/backup-status"))
+BACKUP_STATUS_DIR = Path(os.environ.get("BACKUP_STATUS_DIR", "/opt/backups/status"))
 
 # Files/dirs to include from each stack
 INCLUDE_PATTERNS = [

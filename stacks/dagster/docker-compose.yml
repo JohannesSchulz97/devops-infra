@@ -58,7 +58,7 @@ services:
       TWENTY_API_URL: "${TWENTY_API_URL}"
       TWENTY_API_KEY: "${TWENTY_API_KEY}"
     volumes:
-      - /opt/backup-status:/opt/backup-status:ro
+      - /opt/backups/status:/opt/backups/status:ro
     healthcheck:
       test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
       interval: 10s

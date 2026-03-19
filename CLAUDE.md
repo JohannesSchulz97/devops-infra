@@ -25,6 +25,8 @@ devops-infra/
 │   ├── langgraph/                         # LangGraph agents (langgraph.<host-domain>)
 │   │   ├── docker-compose.yml
 │   │   └── docker-compose.prod.yml
+│   ├── paperclip/docker-compose.yml       # Paperclip AI agent orchestration (paperclip.<host-domain>)
+│   ├── beszel/docker-compose.yml          # Beszel monitoring hub + agent (monitor.<host-domain>)
 │   └── watchtower/docker-compose.yml      # Auto image updater
 ├── nginx/                                 # Reverse proxy site configs
 │   ├── twenty.conf                        # crm.<host-domain> → :3003
@@ -35,6 +37,8 @@ devops-infra/
 │   ├── coder.conf                         # coder.<host-domain> → :3000
 │   ├── vibekanban.conf                    # vibekanban.<host-domain> → :8082
 │   ├── api-vibekanban.conf                # api.vibekanban.<host-domain> → :8081
+│   ├── paperclip.conf                     # paperclip.<host-domain> → :3100
+│   ├── beszel.conf                        # monitor.<host-domain> → :8090
 │   └── default.conf                       # Default nginx config
 ├── systemd/                               # Custom systemd units
 │   ├── mnt-storagebox.mount               # Hetzner Storage Box SSHFS mount
@@ -66,6 +70,7 @@ devops-infra/
 - Database ports are bound to 127.0.0.1 only (not publicly accessible)
 - Backups use BorgBackup to Hetzner Storage Box (encrypted, deduplicated)
 - Watchtower auto-updates images tagged with the watchtower label
+- Docker uses the **journald** log driver — container logs go to systemd-journald (query with `journalctl CONTAINER_NAME=<name>`)
 - `.env` files contain secrets and are NOT committed — only `.env.example` templates
 
 ## PostgreSQL Instances
@@ -79,6 +84,7 @@ devops-infra/
 | 5433 | surfsense-db | surfsense | SurfSense + pgvector |
 | 5434 | langgraph-db | langgraph | LangGraph |
 | (internal) | listmonk_db | listmonk | Listmonk |
+| 5438 | paperclip-db | paperclip | Paperclip |
 
 ## Related Repositories
 
