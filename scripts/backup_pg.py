@@ -1,18 +1,18 @@
 """
 Backup PostgreSQL databases to Hetzner Storage Box via BorgBackup.
 
-Each database profile gets its own borg repository on the storage box. Borg handles
-compression, encryption, deduplication, and transport. pg_dump runs inside Docker
-via --content-from-command — if pg_dump fails, no archive is created.
+Auto-discovers all running PostgreSQL containers via pg_isready, so new
+databases are backed up without configuration changes. Manual overrides
+can be specified in PROFILE_OVERRIDES for special cases (schema filters,
+volume backups, dump_all mode). Borg repos are auto-initialized on first use.
 
 Usage:
     backup_pg.py --production                      # backup all production databases (daily)
-    backup_pg.py --all                             # backup everything (including foundry-datasets)
-    backup_pg.py foundry-datasets                  # backup a specific profile
-    backup_pg.py --list foundry-datasets           # list archives
+    backup_pg.py --all                             # backup everything (including non-production)
+    backup_pg.py paperclip                         # backup a specific profile
+    backup_pg.py --list paperclip                  # list archives
     backup_pg.py --verify n8n                      # verify repo integrity
-    backup_pg.py --init n8n                        # initialize new borg repo
-    backup_pg.py --profiles                        # show available profiles
+    backup_pg.py --profiles                        # show discovered + configured profiles
 
 Environment variables (from .env):
     BORG_PASSPHRASE  — encryption passphrase (shared across all repos)
@@ -47,56 +47,167 @@ BORG_RSH = (
     " -o ServerAliveInterval=60"
     " -o ServerAliveCountMax=3"
 )
-BACKUP_STATUS_DIR = Path(os.environ.get("BACKUP_STATUS_DIR", "/opt/backup-status"))
+BACKUP_STATUS_DIR = Path(os.environ.get("BACKUP_STATUS_DIR", "/opt/backups/status"))
 
-PROFILES: dict[str, dict] = {
+# Manual overrides for containers that need special backup configuration.
+# Keyed by profile name; each must specify "container" to match a discovered
+# PG container. Discovered containers without an override get default pg_dump
+# behavior automatically.
+PROFILE_OVERRIDES: dict[str, dict] = {
     "foundry-datasets": {
         "container": "foundry-datasets-db",
-        "pg_user": "twenty",
-        "database": "default",
         "schema": "foundry",
         "production": False,
         "description": "Foundry datasets (foundry schema)",
     },
     "twenty-crm": {
         "container": "twenty-db",
-        "pg_user": "twenty",
-        "database": "default",
         "exclude_schema": "foundry",
         "volumes": ["crm-stack_twenty-storage"],
         "description": "Twenty CRM (default db + file storage, excluding foundry schema)",
     },
-    "n8n": {
-        "container": "n8n-db",
-        "pg_user": "n8n",
-        "database": "n8n",
-        "description": "n8n workflows and execution history",
-    },
-    "surfsense": {
-        "container": "surfsense-db",
-        "pg_user": "postgres",
-        "database": "surfsense",
-        "description": "SurfSense + pgvector embeddings",
-    },
     "dagster": {
         "container": "dagster-db",
-        "pg_user": "dagster",
         "dump_all": True,
         "description": "Dagster metadata + pipeline databases",
     },
     "langgraph": {
-        "container": "langgraph-db",
-        "pg_user": "postgres",
-        "database": "langgraph",
+        "container": "llm-pipelines-postgres-1",
         "description": "LangGraph agent state",
     },
-    "listmonk": {
-        "container": "listmonk_db",
-        "pg_user": "listmonk",
-        "database": "listmonk",
-        "description": "Listmonk mailing list manager",
-    },
 }
+
+# Containers to skip during auto-discovery
+SKIP_CONTAINERS: set[str] = set()
+
+# Populated at runtime by build_profiles()
+PROFILES: dict[str, dict] = {}
+
+# ---------------------------------------------------------------------------
+# Auto-discovery
+# ---------------------------------------------------------------------------
+
+
+def discover_pg_containers() -> list[dict]:
+    """Discover running PostgreSQL containers by probing with pg_isready."""
+    result = subprocess.run(
+        ["docker", "ps", "--format", "{{.Names}}"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print("ERROR: Could not list Docker containers", file=sys.stderr)
+        return []
+
+    containers = []
+    for name in sorted(result.stdout.strip().splitlines()):
+        name = name.strip()
+        if not name or name in SKIP_CONTAINERS:
+            continue
+        try:
+            check = subprocess.run(
+                ["docker", "exec", name, "pg_isready", "-q"],
+                capture_output=True, text=True,
+                timeout=5,
+            )
+        except subprocess.TimeoutExpired:
+            continue
+        if check.returncode != 0:
+            continue
+
+        # Read credentials from container environment
+        pg_user = subprocess.run(
+            ["docker", "exec", name, "printenv", "POSTGRES_USER"],
+            capture_output=True, text=True,
+        ).stdout.strip() or "postgres"
+        pg_db = subprocess.run(
+            ["docker", "exec", name, "printenv", "POSTGRES_DB"],
+            capture_output=True, text=True,
+        ).stdout.strip() or "postgres"
+
+        containers.append({
+            "container": name,
+            "pg_user": pg_user,
+            "database": pg_db,
+        })
+    return containers
+
+
+def derive_profile_name(container_name: str) -> str:
+    """Derive a human-readable profile name from a container name."""
+    name = container_name
+    for suffix in ("-db", "_db", "-postgres-1", "-postgres"):
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    return name
+
+
+def build_profiles() -> dict[str, dict]:
+    """Build profiles by merging auto-discovered containers with manual overrides."""
+    discovered = discover_pg_containers()
+
+    # Map container name -> (profile_name, override_config)
+    override_by_container: dict[str, tuple[str, dict]] = {}
+    for profile_name, override in PROFILE_OVERRIDES.items():
+        override_by_container[override["container"]] = (profile_name, override)
+
+    profiles: dict[str, dict] = {}
+
+    for info in discovered:
+        container = info["container"]
+
+        if container in override_by_container:
+            profile_name, override = override_by_container[container]
+            # Discovered values are defaults; overrides win
+            profile = {**info, **override}
+        else:
+            profile_name = derive_profile_name(container)
+            profile = {
+                **info,
+                "description": f"{profile_name} PostgreSQL (auto-discovered)",
+            }
+
+        profile.setdefault("production", True)
+        profiles[profile_name] = profile
+
+    # Warn about overrides whose containers aren't running
+    discovered_containers = {c["container"] for c in discovered}
+    for profile_name, override in PROFILE_OVERRIDES.items():
+        if override["container"] not in discovered_containers:
+            print(
+                f"Warning: container '{override['container']}' for profile "
+                f"'{profile_name}' is not running — skipping",
+                file=sys.stderr,
+            )
+
+    return profiles
+
+
+def ensure_repo_initialized(profile_name: str) -> bool:
+    """Check if borg repo exists; auto-initialize if not. Returns True if ready."""
+    env = borg_env(profile_name)
+    result = subprocess.run(
+        ["borg", "list", "--short", "--last", "1"],
+        capture_output=True, text=True,
+        env=env,
+    )
+    if result.returncode == 0:
+        return True
+
+    # Repo doesn't exist — initialize it
+    repo = borg_repo(profile_name)
+    print(f"Auto-initializing new borg repo: {repo}")
+    init_result = subprocess.run(
+        ["borg", "init", "--encryption=repokey"],
+        env=env,
+    )
+    if init_result.returncode == 0:
+        print(f"Repository initialized: {repo}")
+        return True
+
+    print(f"ERROR: Could not initialize borg repo for {profile_name}", file=sys.stderr)
+    return False
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -236,6 +347,9 @@ def backup_volumes(profile_name: str, volumes: list[str], timestamp: str) -> boo
 
 def run_backup(profile_name: str) -> bool:
     """Run borg create for a profile. Returns True on success."""
+    if not ensure_repo_initialized(profile_name):
+        return False
+
     profile = PROFILES[profile_name]
     now = datetime.now(timezone.utc)
     timestamp = f"{now:%Y-%m-%d_%H%M%S}"
@@ -305,11 +419,13 @@ def verify_repo(profile_name: str) -> None:
 
 
 def show_profiles() -> None:
-    print(f"{'Profile':<22} {'Prod':<6} {'Container':<38} Description")
-    print("-" * 105)
+    has_override = {o["container"] for o in PROFILE_OVERRIDES.values()}
+    print(f"{'Profile':<22} {'Prod':<6} {'Source':<14} {'Container':<34} Description")
+    print("-" * 115)
     for name, p in PROFILES.items():
         prod = "yes" if p.get("production", True) else "no"
-        print(f"{name:<22} {prod:<6} {p['container']:<38} {p.get('description', '')}")
+        source = "override" if p["container"] in has_override else "discovered"
+        print(f"{name:<22} {prod:<6} {source:<14} {p['container']:<34} {p.get('description', '')}")
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +445,11 @@ def main():
     parser.add_argument("--init", action="store_true", help="Initialize a new borg repository")
     parser.add_argument("--profiles", action="store_true", help="Show available profiles")
     args = parser.parse_args()
+
+    # Discover running PG containers and merge with overrides
+    global PROFILES
+    PROFILES = build_profiles()
+    print(f"Discovered {len(PROFILES)} PostgreSQL database(s)\n")
 
     if args.profiles:
         show_profiles()
