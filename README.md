@@ -26,6 +26,7 @@ Infrastructure-as-code for the <your-org> main server (`<server-host>`, <server-
 | LangGraph | langgraph.<host-domain> | `stacks/langgraph/` | 8123 |
 | Coder | coder.<host-domain> | systemd service | 3000 |
 | Listmonk | (internal) | `stacks/listmonk/` | 9000 |
+| Beszel | monitor.<host-domain> | `stacks/beszel/` | 8090 |
 | Watchtower | — | `stacks/watchtower/` | — |
 
 All services sit behind nginx with Let's Encrypt SSL. See `docs/architecture.md` for the full port map and topology.

@@ -26,7 +26,8 @@ Internet
   │             ├── coder.<host-domain>          → 127.0.0.1:3000  (Coder)
   │             ├── listmonk.<host-domain>       → 127.0.0.1:9000  (Listmonk)
   │             ├── vibekanban.<host-domain>     → 127.0.0.1:8082  (VibeKanban)
-  │             └── api.vibekanban.<host-domain> → 127.0.0.1:8081  (VibeKanban API)
+  │             ├── api.vibekanban.<host-domain> → 127.0.0.1:8081  (VibeKanban API)
+  │             └── monitor.<host-domain>       → 127.0.0.1:8090  (Beszel)
   │
   └── (no other ports exposed to internet)
 ```
@@ -53,6 +54,7 @@ All application ports are bound to 127.0.0.1 except n8n (5678) and SurfSense bac
 | 6379 | 127.0.0.1 | SurfSense Redis | Redis |
 | 6380 | 127.0.0.1 | LangGraph Redis | Redis |
 | 8000 | 0.0.0.0 | SurfSense backend | HTTP |
+| 8090 | 127.0.0.1 | Beszel (monitoring) | HTTP |
 | 8123 | 127.0.0.1 | LangGraph API | HTTP |
 | 9000 | 127.0.0.1 | Listmonk | HTTP |
 
@@ -84,6 +86,7 @@ Six separate PostgreSQL containers (listmonk shares the Twenty instance):
 │   ├── llm-pipelines/   # LangGraph
 │   ├── watchtower/
 │   ├── vibe-kanban/
+│   ├── beszel/               # Beszel monitoring (hub + agent)
 │   └── foundry-backup/  # Foundry extraction scripts (deployed subset)
 ├── /mnt/main/               # PostgreSQL data directories
 │   ├── pg_main/             # foundry-datasets-db
@@ -113,6 +116,7 @@ All certificates managed by Certbot (Let's Encrypt). Domains:
 - listmonk.<host-domain>
 - vibekanban.<host-domain>
 - api.vibekanban.<host-domain>
+- monitor.<host-domain>
 
 Auto-renewal via Certbot timer: `systemctl status certbot.timer`
 
@@ -160,4 +164,13 @@ Coder → PostgreSQL (localhost:5432, separate instance)
       → Docker socket
 
 Watchtower → Docker socket (monitors labeled containers)
+
+Beszel Hub → Beszel Agent (via Unix socket, same host)
+           → SQLite (beszel-data volume)
+Beszel Agent → Docker socket (container metrics)
+             → Host metrics (network_mode: host)
 ```
+
+### Logging
+
+Docker is configured with the **journald** log driver. All container logs are sent to systemd-journald, providing unified searchable logs across all services. Journald retention is set to 2 GB / 90 days.

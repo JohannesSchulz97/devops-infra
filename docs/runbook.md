@@ -34,6 +34,7 @@ Stack directories on server:
 - `/opt/llm-pipelines/` — LangGraph
 - `/opt/listmonk/` — Listmonk
 - `/opt/watchtower/` — Watchtower
+- `/opt/beszel/` — Beszel monitoring (hub + agent)
 
 ### Coder (systemd, not Docker Compose)
 
@@ -371,6 +372,76 @@ docker compose up -d twenty-worker
 Login should now work. Verify: `curl http://localhost:3003/healthz`
 
 ---
+
+## Monitoring (Beszel)
+
+Beszel provides server metrics, Docker container stats, and alerting.
+
+- **URL**: https://monitor.<host-domain>
+- **Stack**: `/opt/beszel/`
+- **Architecture**: Hub (web UI + data storage) + Agent (metrics collector), both on <server-host>
+- **Hub ↔ Agent communication**: Unix socket via shared Docker volume (no TCP exposure)
+- **Data**: SQLite in `beszel-data` named volume
+
+### Access
+
+Open https://monitor.<host-domain> and log in. Alert rules are configured through the web UI.
+
+### Reconfigure the agent
+
+If you need to regenerate the agent key (e.g. after re-adding the system in the hub):
+
+```bash
+cd /opt/beszel
+# Update BESZEL_KEY in .env with the new key from the hub's "Add System" dialog
+nano .env
+docker compose up -d beszel-agent
+```
+
+### Check status
+
+```bash
+docker ps --filter name=beszel
+curl -s http://localhost:8090/api/health
+```
+
+## Logging (journald)
+
+Docker uses the **journald** log driver. All container logs are sent to systemd-journald for unified, searchable logging.
+
+### Query container logs
+
+```bash
+# Recent logs for a specific container
+journalctl CONTAINER_NAME=twenty-db --since "1 hour ago"
+
+# Follow/tail a container's logs
+journalctl CONTAINER_NAME=twenty-db -f
+
+# Search all logs for a pattern
+journalctl --since "2026-03-01" | grep -i "xfs"
+
+# Kernel messages only
+journalctl -k | grep -i "error"
+```
+
+### Manage journal storage
+
+```bash
+# Check disk usage
+journalctl --disk-usage
+
+# Manually vacuum old logs
+sudo journalctl --vacuum-size=1G
+sudo journalctl --vacuum-time=60d
+```
+
+### Configuration
+
+- **Log driver**: `/etc/docker/daemon.json` — `"log-driver": "journald"` with `"tag": "{{.Name}}"`
+- **Retention**: `/etc/systemd/journald.conf` — `SystemMaxUse=2G`, `MaxRetentionSec=90d`
+- `docker logs <container>` still works as before — no change to existing workflows
+- The journald driver only applies to containers created **after** the config change. Existing containers keep their previous driver until recreated.
 
 ## Troubleshooting
 
