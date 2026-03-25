@@ -17,6 +17,8 @@ services:
     volumes:
       - beszel-socket:/beszel_socket
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "/mnt/main:/extra-filesystems/main Volume:ro"
+      - "/mnt/storagebox:/extra-filesystems/Storagebox:ro"
     environment:
       LISTEN: /beszel_socket/beszel.sock
       KEY: "${BESZEL_KEY}"
