@@ -25,7 +25,6 @@ devops-infra/
 │   ├── langgraph/                         # LangGraph agents (langgraph.<host-domain>)
 │   │   ├── docker-compose.yml
 │   │   └── docker-compose.prod.yml
-│   ├── paperclip/docker-compose.yml       # Paperclip AI agent orchestration (paperclip.<host-domain>)
 │   ├── beszel/docker-compose.yml          # Beszel monitoring hub + agent (monitor.<host-domain>)
 │   └── watchtower/docker-compose.yml      # Auto image updater
 ├── nginx/                                 # Reverse proxy site configs
@@ -37,7 +36,6 @@ devops-infra/
 │   ├── coder.conf                         # coder.<host-domain> → :3000
 │   ├── vibekanban.conf                    # vibekanban.<host-domain> → :8082
 │   ├── api-vibekanban.conf                # api.vibekanban.<host-domain> → :8081
-│   ├── paperclip.conf                     # paperclip.<host-domain> → :3100
 │   ├── beszel.conf                        # monitor.<host-domain> → :8090
 │   └── default.conf                       # Default nginx config
 ├── systemd/                               # Custom systemd units
@@ -102,7 +100,6 @@ Output is logged to `/var/log/docker-prune.log`. Note: named volumes are NOT pru
 | 5433 | surfsense-db | surfsense | SurfSense + pgvector |
 | 5434 | langgraph-db | langgraph | LangGraph |
 | (internal) | listmonk_db | listmonk | Listmonk |
-| 5438 | paperclip-db | paperclip | Paperclip |
 
 ## Related Repositories
 
