@@ -39,6 +39,7 @@ devops-infra/
 │   ├── beszel.conf                        # monitor.<host-domain> → :8090
 │   └── default.conf                       # Default nginx config
 ├── systemd/                               # Custom systemd units
+│   ├── journald.conf                      # Journald log cap (2G / 90d)
 │   ├── mnt-storagebox.mount               # Hetzner Storage Box SSHFS mount
 │   └── coder.service                      # Coder IDE server
 ├── scripts/
@@ -68,7 +69,7 @@ devops-infra/
 - Database ports are bound to 127.0.0.1 only (not publicly accessible)
 - Backups use BorgBackup to Hetzner Storage Box (encrypted, deduplicated)
 - Watchtower auto-updates images tagged with the watchtower label (`WATCHTOWER_CLEANUP=true` removes old image versions automatically)
-- Docker uses the **journald** log driver — container logs go to systemd-journald (query with `journalctl CONTAINER_NAME=<name>`)
+- Docker uses the **journald** log driver — container logs go to systemd-journald (query with `journalctl CONTAINER_NAME=<name>`). Journal is capped at 2 GB / 90 days (see `/etc/systemd/journald.conf`)
 - `.env` files contain secrets and are NOT committed — only `.env.example` templates
 - Docker data root is at the default `/var/lib/docker` on the root SSD — **TODO: move to `/mnt/main/docker`** to prevent disk pressure
 
