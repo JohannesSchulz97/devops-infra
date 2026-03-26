@@ -45,7 +45,8 @@ devops-infra/
 ├── scripts/
 │   ├── backup_pg.py                       # pg_dump all databases → Storage Box via Borg
 │   ├── backup_configs.py                  # /opt stack configs → Storage Box via Borg
-│   └── backup_foundry_datasets_cfr2.py    # Foundry schema → Cloudflare R2
+│   ├── backup_foundry_datasets_cfr2.py    # Foundry schema → Cloudflare R2
+│   └── check_disk_usage.sh               # Disk threshold alerts → Slack (cron every 6h)
 └── docs/
     ├── architecture.md                    # Port map, disk layout, PG instances, topology
     ├── runbook.md                         # Common operations reference
@@ -89,6 +90,17 @@ A cron job runs every Sunday at 3 AM to remove dangling images, stopped containe
 ```
 
 Output is logged to `/var/log/docker-prune.log`. Note: named volumes are NOT pruned by this job — those require manual review (`docker volume ls --filter dangling=true`).
+
+### Disk usage alerts cron
+
+A cron job runs every 6 hours to check filesystem usage and alert to Slack:
+
+```
+/etc/cron.d/check-disk-usage:
+0 */6 * * * root /opt/scripts/check_disk_usage.sh >> /var/log/check-disk-usage.log 2>&1
+```
+
+Thresholds: `/mnt/main` > 80%, `/mnt/storagebox` > 70%, `/` > 90%. Alerts go to the same Slack webhook as Beszel. This is a stopgap until Beszel supports extra filesystem alerts natively.
 
 ## PostgreSQL Instances
 
