@@ -9,8 +9,8 @@ volume backups, dump_all mode). Borg repos are auto-initialized on first use.
 Usage:
     backup_pg.py --production                      # backup all production databases (daily)
     backup_pg.py --all                             # backup everything (including non-production)
-    backup_pg.py paperclip                         # backup a specific profile
-    backup_pg.py --list paperclip                  # list archives
+    backup_pg.py twenty-crm                        # backup a specific profile
+    backup_pg.py --list twenty-crm                 # list archives
     backup_pg.py --verify n8n                      # verify repo integrity
     backup_pg.py --profiles                        # show discovered + configured profiles
 
