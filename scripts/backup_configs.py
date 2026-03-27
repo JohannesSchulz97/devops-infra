@@ -37,7 +37,8 @@ BORG_BASE = os.environ.get(
     "ssh://<storage-box-id>@<storage-box-id>.your-storagebox.de:23/.",
 )
 BORG_RSH = (
-    "ssh -o StrictHostKeyChecking=accept-new"
+    "ssh -i /home/<admin-user>/.ssh/id_ed25519"
+    " -o StrictHostKeyChecking=accept-new"
     " -o ServerAliveInterval=60"
     " -o ServerAliveCountMax=3"
 )

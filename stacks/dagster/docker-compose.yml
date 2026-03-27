@@ -122,7 +122,7 @@ services:
     container_name: dagster-webserver
     restart: always
     ports:
-      - "3010:3010"
+      - "127.0.0.1:3010:3010"
     environment:
       DAGSTER_POSTGRES_USER: "${DAGSTER_POSTGRES_USER:-dagster}"
       DAGSTER_POSTGRES_PASSWORD: "${DAGSTER_POSTGRES_PASSWORD}"
