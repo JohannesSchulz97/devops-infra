@@ -1,0 +1,43 @@
+name: litellm
+
+services:
+  litellm-proxy-1:
+    image: ghcr.io/berriai/litellm:v1.83.7-stable
+    container_name: litellm-proxy-1
+    ports:
+      - "127.0.0.1:4000:4000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${LITELLM_DATABASE_URL}
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    depends_on:
+      litellm-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4000/health/liveliness"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  litellm-db:
+    image: postgres:16
+    container_name: litellm-db
+    ports:
+      - "127.0.0.1:5438:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: litellm
+      POSTGRES_DB: litellm
+    volumes:
+      - /mnt/main/pg_litellm:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
