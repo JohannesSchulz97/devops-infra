@@ -45,6 +45,8 @@ services:
       - POSTGRES_USER=n8n
       - POSTGRES_PASSWORD=${DB_POSTGRESDB_PASSWORD}
       - POSTGRES_DB=n8n
+    ports:
+      - "127.0.0.1:5438:5432"
     volumes:
       - /mnt/main/pg_n8n:/var/lib/postgresql/data
 
