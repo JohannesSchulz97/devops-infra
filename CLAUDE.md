@@ -61,7 +61,25 @@ devops-infra/
 - **CPU**: AMD EPYC-Milan, 16 cores
 - **RAM**: 64 GB
 - **Disk**: 338 GB SSD + 10 TB Storage Box (SSHFS at /mnt/storagebox)
-- **SSH user**: set via `SSH_USER` in `.env` (default: <admin-user>)
+- **SSH users**: each person has their own OS account — `SSH_USER` in `.env` must match their account name
+
+## Server OS Accounts
+
+Each user has a personal OS account and SSH key. `<admin-user>` has sudo/admin rights and is reserved for infrastructure admins only.
+
+| User | Account | Access level |
+|------|---------|-------------|
+| dev1 Schulz | `dev1` | admin (sudo) |
+| dev10 Soyka | `dev10` | standard |
+| dev10-Jean | `dev10-jean` | standard |
+| dev10 | `dev10` | standard |
+| dev10 | `dev10` | standard |
+| dev10 | `dev10` | standard |
+| dev3 | `dev3` | standard |
+
+SSH keys live in `/home/<user>/.ssh/authorized_keys`. When adding a new user's machine, always put the key in their own account, never in `<admin-user>`.
+
+**`SSH_USER` in `.env`** must be set to the user's own account name (e.g. `dev10`, `dev1`), not `<admin-user>` unless they are an infra admin.
 
 ## Key Patterns
 
@@ -109,10 +127,21 @@ Thresholds: `/mnt/main` > 80%, `/mnt/storagebox` > 70%, `/` > 90%. Alerts go to 
 | 5435 | foundry-datasets-db | default (foundry schema) | Foundry dataset backup |
 | 5437 | twenty-db | default | Twenty CRM |
 | 5436 | dagster-db | dagster, pipelines, pipelines_dev | Dagster |
-| (internal) | n8n-db | n8n | n8n |
+| 5438 | n8n-db | n8n | n8n |
 | 5433 | surfsense-db | surfsense | SurfSense + pgvector |
 | 5434 | langgraph-db | langgraph | LangGraph |
 | (internal) | listmonk_db | listmonk | Listmonk |
+
+### Read-only DB access
+
+PostgreSQL users `dev10_readonly` and `dev1_readonly` exist on all 5 exposed DBs (Twenty, Dagster, Surfsense, Foundry, n8n). These users have SELECT-only privileges — no INSERT, UPDATE, DELETE, DROP, or CREATE possible.
+
+Access flow: SSH key → personal OS account → SSH tunnel → `*_readonly` PG user.
+
+When granting DB access to a new person:
+1. Add their SSH key to `/home/<their-account>/.ssh/authorized_keys` (never to `<admin-user>`)
+2. Create a `<name>_readonly` PostgreSQL user on each DB container with SELECT-only grants
+3. Never grant write privileges to non-admin users
 
 ## Related Repositories
 
