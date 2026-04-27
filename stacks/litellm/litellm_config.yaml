@@ -103,6 +103,55 @@ model_list:
       model: gemini/gemini-3.1-flash-image-preview
       api_key: os.environ/GEMINI_API_KEY
 
+  # --- Oracle full-path Fireworks aliases ---
+  # Oracle's llm_router_service.py builds model strings with custom_provider="openai"
+  # + the full Fireworks slug as model_name, producing
+  # `openai/accounts/fireworks/models/<short>`. LiteLLM strips the `openai/`
+  # prefix when calling an OpenAI-compatible api_base, so the outgoing model
+  # field sent to this proxy is the full slug below. Each alias points at the
+  # same upstream Fireworks model as its short-name twin earlier in this file.
+  - model_name: accounts/fireworks/models/minimax-m2p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+
+  - model_name: accounts/fireworks/models/glm-5
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-5
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+
+  - model_name: accounts/fireworks/models/kimi-k2p5
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k2p5
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+
+  - model_name: accounts/fireworks/models/deepseek-v3p2
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/deepseek-v3p2
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+
+  - model_name: accounts/fireworks/models/glm-4p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-4p7
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+
+  - model_name: accounts/fireworks/models/gpt-oss-120b
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/gpt-oss-120b
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+
+  - model_name: accounts/fireworks/models/glm-5p1
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-5p1
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
