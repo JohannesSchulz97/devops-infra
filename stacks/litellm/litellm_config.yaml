@@ -1,0 +1,220 @@
+model_list:
+  # --- Fireworks: original list ---
+  - model_name: minimax-m2p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000003
+      output_cost_per_token: 0.0000012
+
+  # minimax-m2p5 alias — Oracle's global config currently uses m2p7, but some
+  # callers may reference m2p5. Points at the same backend slug until a
+  # distinct m2p5 is needed.
+  - model_name: minimax-m2p5
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000003
+      output_cost_per_token: 0.0000012
+
+  - model_name: glm-5
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-5
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.000001
+      output_cost_per_token: 0.0000032
+
+  - model_name: kimi-k2p5
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k2p5
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.000003
+
+  # deepseek-v3 (plain) is not in Fireworks' live /v1/models list — only
+  # v3p1 and v3p2 are. Short name routed to the latest v3 revision (v3p2).
+  - model_name: deepseek-v3
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/deepseek-v3p2
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000056
+      output_cost_per_token: 0.00000168
+
+  - model_name: qwen3-vl-30b
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/qwen3-vl-30b-a3b-thinking
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
+
+  # --- Fireworks: additional models kept available for all consumers ---
+  - model_name: gpt-oss-120b
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/gpt-oss-120b
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
+
+  - model_name: gpt-oss-20b
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/gpt-oss-20b
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000007
+      output_cost_per_token: 0.0000003
+
+  - model_name: glm-4p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-4p7
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.0000022
+
+  - model_name: kimi-k2-instruct
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k2-instruct
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    # No model_info: kimi-k2-instruct is not on https://fireworks.ai/pricing
+    # (Fireworks now lists K2.5/K2.5 Turbo/K2.6/K2.6 Turbo/K2.6 Priority).
+    # Spend logs will show cost=$0 for this model until pricing is sourced.
+
+  # --- Gemini ---
+  - model_name: gemini-2-5-pro
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: os.environ/GEMINI_API_KEY
+
+  # --- Oracle compatibility aliases ---
+  # Names referenced in /opt/SurfSense/surfsense_backend/app/config/global_llm_config.yaml.
+  # Having them here means Oracle can be repointed at the proxy without
+  # Oracle-side config changes.
+  - model_name: deepseek-v3p2
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/deepseek-v3p2
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000056
+      output_cost_per_token: 0.00000168
+
+  - model_name: glm-5p1
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-5p1
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000014
+      output_cost_per_token: 0.0000044
+
+  - model_name: gemini-3.1-pro-preview
+    litellm_params:
+      model: gemini/gemini-3.1-pro-preview
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gemini-3.1-flash-lite-preview
+    litellm_params:
+      model: gemini/gemini-3.1-flash-lite-preview
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gemini-3.1-flash-image-preview
+    litellm_params:
+      model: gemini/gemini-3.1-flash-image-preview
+      api_key: os.environ/GEMINI_API_KEY
+
+  # --- Oracle full-path Fireworks aliases ---
+  # Oracle's llm_router_service.py builds model strings with custom_provider="openai"
+  # + the full Fireworks slug as model_name, producing
+  # `openai/accounts/fireworks/models/<short>`. LiteLLM strips the `openai/`
+  # prefix when calling an OpenAI-compatible api_base, so the outgoing model
+  # field sent to this proxy is the full slug below. Each alias points at the
+  # same upstream Fireworks model as its short-name twin earlier in this file.
+  - model_name: accounts/fireworks/models/minimax-m2p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000003
+      output_cost_per_token: 0.0000012
+
+  - model_name: accounts/fireworks/models/glm-5
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-5
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.000001
+      output_cost_per_token: 0.0000032
+
+  - model_name: accounts/fireworks/models/kimi-k2p5
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k2p5
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.000003
+
+  - model_name: accounts/fireworks/models/deepseek-v3p2
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/deepseek-v3p2
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000056
+      output_cost_per_token: 0.00000168
+
+  - model_name: accounts/fireworks/models/glm-4p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-4p7
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.0000022
+
+  - model_name: accounts/fireworks/models/gpt-oss-120b
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/gpt-oss-120b
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
+
+  - model_name: accounts/fireworks/models/glm-5p1
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-5p1
+      api_key: os.environ/FIREWORKS_API_KEY
+      api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000014
+      output_cost_per_token: 0.0000044
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+  # ZDR requirement — must stay false. Do not flip without legal review.
+  store_prompts_in_spend_logs: false
+
+litellm_settings:
+  drop_params: true
