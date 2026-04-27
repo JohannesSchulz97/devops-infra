@@ -5,6 +5,9 @@ model_list:
       model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000003
+      output_cost_per_token: 0.0000012
 
   # minimax-m2p5 alias — Oracle's global config currently uses m2p7, but some
   # callers may reference m2p5. Points at the same backend slug until a
@@ -14,18 +17,27 @@ model_list:
       model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000003
+      output_cost_per_token: 0.0000012
 
   - model_name: glm-5
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/glm-5
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.000001
+      output_cost_per_token: 0.0000032
 
   - model_name: kimi-k2p5
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/kimi-k2p5
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.000003
 
   # deepseek-v3 (plain) is not in Fireworks' live /v1/models list — only
   # v3p1 and v3p2 are. Short name routed to the latest v3 revision (v3p2).
@@ -34,12 +46,18 @@ model_list:
       model: fireworks_ai/accounts/fireworks/models/deepseek-v3p2
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000056
+      output_cost_per_token: 0.00000168
 
   - model_name: qwen3-vl-30b
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/qwen3-vl-30b-a3b-thinking
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
 
   # --- Fireworks: additional models kept available for all consumers ---
   - model_name: gpt-oss-120b
@@ -47,24 +65,36 @@ model_list:
       model: fireworks_ai/accounts/fireworks/models/gpt-oss-120b
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
 
   - model_name: gpt-oss-20b
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/gpt-oss-20b
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000007
+      output_cost_per_token: 0.0000003
 
   - model_name: glm-4p7
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/glm-4p7
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.0000022
 
   - model_name: kimi-k2-instruct
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/kimi-k2-instruct
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    # No model_info: kimi-k2-instruct is not on https://fireworks.ai/pricing
+    # (Fireworks now lists K2.5/K2.5 Turbo/K2.6/K2.6 Turbo/K2.6 Priority).
+    # Spend logs will show cost=$0 for this model until pricing is sourced.
 
   # --- Gemini ---
   - model_name: gemini-2-5-pro
@@ -81,12 +111,18 @@ model_list:
       model: fireworks_ai/accounts/fireworks/models/deepseek-v3p2
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000056
+      output_cost_per_token: 0.00000168
 
   - model_name: glm-5p1
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/glm-5p1
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000014
+      output_cost_per_token: 0.0000044
 
   - model_name: gemini-3.1-pro-preview
     litellm_params:
@@ -115,42 +151,63 @@ model_list:
       model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000003
+      output_cost_per_token: 0.0000012
 
   - model_name: accounts/fireworks/models/glm-5
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/glm-5
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.000001
+      output_cost_per_token: 0.0000032
 
   - model_name: accounts/fireworks/models/kimi-k2p5
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/kimi-k2p5
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.000003
 
   - model_name: accounts/fireworks/models/deepseek-v3p2
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/deepseek-v3p2
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000056
+      output_cost_per_token: 0.00000168
 
   - model_name: accounts/fireworks/models/glm-4p7
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/glm-4p7
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000006
+      output_cost_per_token: 0.0000022
 
   - model_name: accounts/fireworks/models/gpt-oss-120b
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/gpt-oss-120b
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.00000015
+      output_cost_per_token: 0.0000006
 
   - model_name: accounts/fireworks/models/glm-5p1
     litellm_params:
       model: fireworks_ai/accounts/fireworks/models/glm-5p1
       api_key: os.environ/FIREWORKS_API_KEY
       api_base: https://api.fireworks.ai/inference/v1
+    model_info:
+      input_cost_per_token: 0.0000014
+      output_cost_per_token: 0.0000044
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
