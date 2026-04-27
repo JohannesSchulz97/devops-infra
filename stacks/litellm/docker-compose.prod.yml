@@ -5,7 +5,7 @@ services:
     ports: !reset []
 
   litellm-proxy-2:
-    image: ghcr.io/berriai/litellm:v1.83.7-stable
+    image: litellm/litellm:v1.83.7-stable
     container_name: litellm-proxy-2
     env_file:
       - .env
@@ -18,7 +18,7 @@ services:
       litellm-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4001/health/liveliness"]
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4001/health/liveliness', timeout=3).status==200 else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
