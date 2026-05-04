@@ -215,6 +215,9 @@ general_settings:
   store_model_in_db: true
   # ZDR requirement — must stay false. Do not flip without legal review.
   store_prompts_in_spend_logs: false
+  # New SSO logins land as read-only viewers; promote to admin/user manually.
+  default_internal_user_params:
+    user_role: "internal_viewer"
 
 litellm_settings:
   drop_params: true
