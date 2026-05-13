@@ -1,6 +1,6 @@
 # devops-infra
 
-Infrastructure-as-code for a self-hosted platform on a single Hetzner dedicated server — replacing Palantir Foundry with a fully owned, Git-driven stack running ~10 services for ~5 developers.
+Infrastructure-as-code for a self-hosted platform on a single Hetzner dedicated server — replacing Palantir Foundry with a fully owned, Git-driven stack running ~10 services for ~15 developers and a broader team of non-technical employees.
 
 **Stack:** Docker · nginx · BorgBackup · Cloudflare R2 · GitHub Actions · Watchtower · Dagster · PostgreSQL (×7) · Beszel
 
@@ -126,7 +126,7 @@ devops-infra/
 ## Key Decisions
 
 **Single server, not Kubernetes**
-Current scale (~10 services, ~5 developers) doesn't justify Kubernetes operational overhead. Isolation is achieved at the Docker/network level. Simpler to operate, easier to reason about, and cheaper.
+Current scale (~10 services, ~15 developers and non-technical staff) doesn't justify Kubernetes operational overhead. Isolation is achieved at the Docker/network level. Simpler to operate, easier to reason about, and cheaper.
 
 **GHCR + Watchtower for deployments**
 Closes the deployment loop without Ansible, SSH deploy scripts, or extra CI configuration. Developers need only a git push. The Makefile was deliberately removed once this pipeline was in place.
@@ -169,7 +169,7 @@ Listmonk shares Twenty's PostgreSQL but lives in a separate Docker Compose stack
 
 ## Outcomes
 
-- ~5 developers deploying services without SSH access
+- ~15 developers and non-technical staff deploying services without SSH access
 - Daily automated backups of all databases; off-site copy of Foundry dataset (~1 TB)
 - Prod/dev pipeline separation — dev pipelines structurally cannot write to production data
 - All services bound to `127.0.0.1`; firewall restricted to ports 22/80/443
